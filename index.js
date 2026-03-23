@@ -21,7 +21,7 @@ const Module = require('node:module');
  * @property {string[]} packages Path to packages to inherit webpack configuration from.
  */
 
-class InheritConfigPlugin {
+class RuleInheritancePlugin {
   /**
    * @param {Options} options
    */
@@ -99,8 +99,8 @@ class InheritConfigPlugin {
    * @param {Compiler} compiler
    */
   apply(compiler) {
-    compiler.hooks.afterEnvironment.tap('InheritConfigPlugin', () => {
-      const logger = compiler.getInfrastructureLogger('inherit-config-webpack-plugin');
+    compiler.hooks.afterEnvironment.tap('RuleInheritancePlugin', () => {
+      const logger = compiler.getInfrastructureLogger('rule-inheritance-webpack-plugin');
 
       /** @type {Rules} */
       const newRules = [];
@@ -132,4 +132,4 @@ class InheritConfigPlugin {
   }
 }
 
-module.exports = InheritConfigPlugin;
+module.exports = RuleInheritancePlugin;

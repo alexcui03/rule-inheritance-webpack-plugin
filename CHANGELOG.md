@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add include condition to inherited rules.
 - Modify use/loader fields to get correct module path.
 
+### Changed
+
+- Change hook and logger name.
+
 ## [0.1.0] - 2026-03-23
 
 ### Added
