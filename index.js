@@ -6,7 +6,6 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
-const {isRegExp} = require('node:util/types');
 const Module = require('node:module');
 
 /**
@@ -73,21 +72,12 @@ class RuleInheritancePlugin {
 
     // Update rule.include fields.
     if (rule.include) {
-      if (typeof rule.include === 'object' && !Array.isArray(rule.include) && !isRegExp(rule.include)) {
-        // rule.include is {and?, or?, not?} object
-        if (rule.include.and) {
-          rule.include.and.push(packagePath);
-        } else {
-          rule.include.and = [packagePath];
-        }
-      } else {
-        rule.include = {
-          and: [
-            packagePath,
-            rule.include
-          ]
-        }
-      }
+      rule.include = {
+        and: [
+          packagePath,
+          rule.include
+        ]
+      };
     } else {
       rule.include = [packagePath];
     }
