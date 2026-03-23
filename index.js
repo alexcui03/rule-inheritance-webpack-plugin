@@ -6,11 +6,13 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
+const {isRegExp} = require('node:util/types');
 
 /**
  * @typedef {import('webpack').Compiler} Compiler
  * @typedef {import('webpack').Configuration} Configuration
- * @typedef {Array<undefined | null | false | "" | 0 | import('webpack').RuleSetRule>} Rules
+ * @typedef {import('webpack').RuleSetRule} RuleSetRule
+ * @typedef {Array<RuleSetRule>} Rules
  */
 
 /**
@@ -24,6 +26,35 @@ class InheritConfigPlugin {
    */
   constructor(options = {packages: []}) {
     this.options = options;
+  }
+
+  /**
+   * @param {RuleSetRule} rule
+   * @param {string} packagePath
+   * @returns {RuleSetRule}
+   */
+  _processRuleCondition(rule, packagePath) {
+    if (rule.include) {
+      if (typeof rule.include === 'object' && !Array.isArray(rule.include) && !isRegExp(rule.include)) {
+        // rule.include is {and?, or?, not?} object
+        if (rule.include.and) {
+          rule.include.and.push(packagePath);
+        } else {
+          rule.include.and = [packagePath];
+        }
+      } else {
+        rule.include = {
+          and: [
+            packagePath,
+            rule.include
+          ]
+        }
+      }
+    } else {
+      rule.include = [packagePath];
+    }
+
+    return rule;
   }
 
   /**
@@ -51,17 +82,7 @@ class InheritConfigPlugin {
         if (!config.module || !config.module.rules) continue;
 
         for (const rule of config.module.rules) {
-          if (rule.include) {
-            // @todo process with complicated match rules
-          } else {
-            rule.include = [packagePath];
-          }
-
-          if (rule.exclude) {
-            // @todo process with complicated match rules
-          }
-
-          newRules.push(rule);
+          newRules.push(this._processRuleCondition(rule, packagePath));
         }
 
         logger.info(`copied ${newRules.length - lastNewRuleLength} rules from ${webpackConfigPath}`);
