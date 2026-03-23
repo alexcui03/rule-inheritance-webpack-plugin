@@ -7,6 +7,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const {isRegExp} = require('node:util/types');
+const Module = require('node:module');
 
 /**
  * @typedef {import('webpack').Compiler} Compiler
@@ -29,11 +30,48 @@ class InheritConfigPlugin {
   }
 
   /**
-   * @param {RuleSetRule} rule
-   * @param {string} packagePath
-   * @returns {RuleSetRule}
+   * Get module real path that required from specific package.
+   * @param {string} name Module name.
+   * @param {string} packagePath Path to apply the require.
+   * @returns Path of module.
    */
-  _processRuleCondition(rule, packagePath) {
+  _getModulePath(name, packagePath) {
+    const packageRequire = Module.createRequire(packagePath);
+    return packageRequire.resolve(name);
+  }
+
+  /**
+   * Process the rule to fit the parent environment.
+   * @param {RuleSetRule} rule Original rule object.
+   * @param {string} packagePath Sub-package path.
+   * @returns Processed rule object.
+   */
+  _processRule(rule, packagePath) {
+    // Update loader path.
+    if (rule.loader) {
+      rule.loader = this._getModulePath(rule.loader, packagePath);
+    } else if (rule.use) {
+      if (typeof rule.use === 'string') {
+        // use: 'string'
+        rule.use = this._getModulePath(rule.use, packagePath);
+      } else if (Array.isArray(rule.use)) {
+        // use: [{loader, options}, {loader}]
+        for (const loader of rule.use) {
+          if (loader.loader) {
+            loader.loader = this._getModulePath(loader.loader, packagePath);
+          }
+        }
+      } else if (typeof rule.use === 'object') {
+        // use: {loader, options}
+        if (rule.use.loader) {
+          rule.use.loader = this._getModulePath(rule.use.loader, packagePath);
+        }
+      } else {
+        // @todo other cases
+      }
+    }
+
+    // Update rule.include fields.
     if (rule.include) {
       if (typeof rule.include === 'object' && !Array.isArray(rule.include) && !isRegExp(rule.include)) {
         // rule.include is {and?, or?, not?} object
@@ -82,7 +120,7 @@ class InheritConfigPlugin {
         if (!config.module || !config.module.rules) continue;
 
         for (const rule of config.module.rules) {
-          newRules.push(this._processRuleCondition(rule, packagePath));
+          newRules.push(this._processRule(rule, packagePath));
         }
 
         logger.info(`copied ${newRules.length - lastNewRuleLength} rules from ${webpackConfigPath}`);
