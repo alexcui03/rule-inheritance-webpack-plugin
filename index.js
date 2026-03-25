@@ -11,8 +11,7 @@ const Module = require('node:module');
 /**
  * @typedef {import('webpack').Compiler} Compiler
  * @typedef {import('webpack').Configuration} Configuration
- * @typedef {import('webpack').RuleSetRule} RuleSetRule
- * @typedef {Array<RuleSetRule>} Rules
+ * @typedef {import('webpack').RuleSetRule} Rule
  */
 
 /**
@@ -40,28 +39,28 @@ class RuleInheritancePlugin {
   }
 
   /**
-   * Process the rule to fit the parent environment.
-   * @param {RuleSetRule} rule Original rule object.
-   * @param {string} packagePath Sub-package path.
-   * @returns Processed rule object.
+   * Update loader path to make it accessiable in parent package.
+   * @param {Rule} rule Rule object.
+   * @param {string} packagePath Path to package.
+   * @returns {Rule} Updated rule.
    */
-  processRule(rule, packagePath) {
-    // Update loader path.
+  updateLoader(rule, packagePath) {
     if (rule.loader) {
+      // { loader: 'loader-name' }
       rule.loader = this.getModulePath(rule.loader, packagePath);
     } else if (rule.use) {
       if (typeof rule.use === 'string') {
-        // use: 'string'
+        // { use: 'loader-name' }
         rule.use = this.getModulePath(rule.use, packagePath);
       } else if (Array.isArray(rule.use)) {
-        // use: [{loader, options}, {loader}]
+        // { use: [{ loader: 'loader-name' }] }
         for (const loader of rule.use) {
           if (loader.loader) {
             loader.loader = this.getModulePath(loader.loader, packagePath);
           }
         }
       } else if (typeof rule.use === 'object') {
-        // use: {loader, options}
+        // { use: { loader: 'loader-name' } }
         if (rule.use.loader) {
           rule.use.loader = this.getModulePath(rule.use.loader, packagePath);
         }
@@ -70,7 +69,16 @@ class RuleInheritancePlugin {
       }
     }
 
-    // Update rule.include fields.
+    return rule;
+  }
+
+  /**
+   * Update condition of rule object to make rules only make effects inside sub-packages.
+   * @param {Rule} rule Rule object.
+   * @param {string} packagePath Path to package.
+   * @returns {Rule} Updated rule.
+   */
+  updateRuleCondition(rule, packagePath) {
     if (rule.include) {
       rule.include = {
         and: [
@@ -86,35 +94,55 @@ class RuleInheritancePlugin {
   }
 
   /**
+   * Get webpack configuration from given package.
+   * @param {*} packagePath Path to package.
+   * @returns {Configuration | null} Webpack config object, null if config doesn't exist.
+   */
+  getPackageConfig(packagePath) {
+    const webpackConfigPath = path.join(packagePath, 'webpack.config.js');
+    if (!fs.existsSync(webpackConfigPath)) {
+      logger.error(`${packagePath} doesn't contain webpack.config.js`);
+      return null;
+    }
+
+    /** @type {Configuration | Configuration[]} */
+    let config = require(webpackConfigPath);
+    if (Array.isArray(config)) config = config[0]; // use first webpack config
+
+    return config;
+  }
+
+  /**
+   * Get inherited rules from webpack config object.
+   * @param {Configuration} config Webpack config object.
+   * @param {string} packagePath Path to package.
+   * @returns {Rule[]} Inherited rules.
+   */
+  getInheritedRules(config, packagePath) {
+    if (!config.module || !config.module.rules) return [];
+
+    return config.module.rules.map((rule) => {
+      this.updateLoader(rule, packagePath);
+      this.updateRuleCondition(rule, packagePath);
+      return rule;
+    });
+  }
+
+  /**
    * @param {Compiler} compiler
    */
   apply(compiler) {
     compiler.hooks.afterEnvironment.tap('RuleInheritancePlugin', () => {
       const logger = compiler.getInfrastructureLogger('rule-inheritance-webpack-plugin');
 
-      /** @type {Rules} */
-      const newRules = [];
-      let lastNewRuleLength = 0; // Used for logging.
-
+      /** @type {Rule[]} */
       for (const packagePath of this.options.packages) {
-        const webpackConfigPath = path.join(packagePath, 'webpack.config.js');
-        if (!fs.existsSync(webpackConfigPath)) {
-          logger.error(`${packagePath} doesn't contain webpack.config.js`);
-          continue;
-        }
+        const config = this.getPackageConfig(packagePath);
+        if (!config) continue;
 
-        /** @type {Configuration | Configuration[]} */
-        let config = require(webpackConfigPath);
-        if (Array.isArray(config)) config = config[0];
-
-        if (!config.module || !config.module.rules) continue;
-
-        for (const rule of config.module.rules) {
-          newRules.push(this.processRule(rule, packagePath));
-        }
-
-        logger.info(`copied ${newRules.length - lastNewRuleLength} rules from ${webpackConfigPath}`);
-        lastNewRuleLength = newRules.length;
+        const inheritedRules = this.getInheritedRules(config, packagePath);
+        logger.info(`inherit ${inheritedRules.length} rules from ${packagePath}`);
+        newRules = newRules.concat(inheritedRules);
       }
 
       compiler.options.module.rules.push(...newRules);
