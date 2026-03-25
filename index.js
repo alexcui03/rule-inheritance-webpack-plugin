@@ -34,7 +34,7 @@ class RuleInheritancePlugin {
    * @param {string} packagePath Path to apply the require.
    * @returns Path of module.
    */
-  _getModulePath(name, packagePath) {
+  getModulePath(name, packagePath) {
     const packageRequire = Module.createRequire(packagePath);
     return packageRequire.resolve(name);
   }
@@ -45,25 +45,25 @@ class RuleInheritancePlugin {
    * @param {string} packagePath Sub-package path.
    * @returns Processed rule object.
    */
-  _processRule(rule, packagePath) {
+  processRule(rule, packagePath) {
     // Update loader path.
     if (rule.loader) {
-      rule.loader = this._getModulePath(rule.loader, packagePath);
+      rule.loader = this.getModulePath(rule.loader, packagePath);
     } else if (rule.use) {
       if (typeof rule.use === 'string') {
         // use: 'string'
-        rule.use = this._getModulePath(rule.use, packagePath);
+        rule.use = this.getModulePath(rule.use, packagePath);
       } else if (Array.isArray(rule.use)) {
         // use: [{loader, options}, {loader}]
         for (const loader of rule.use) {
           if (loader.loader) {
-            loader.loader = this._getModulePath(loader.loader, packagePath);
+            loader.loader = this.getModulePath(loader.loader, packagePath);
           }
         }
       } else if (typeof rule.use === 'object') {
         // use: {loader, options}
         if (rule.use.loader) {
-          rule.use.loader = this._getModulePath(rule.use.loader, packagePath);
+          rule.use.loader = this.getModulePath(rule.use.loader, packagePath);
         }
       } else {
         // @todo other cases
@@ -110,7 +110,7 @@ class RuleInheritancePlugin {
         if (!config.module || !config.module.rules) continue;
 
         for (const rule of config.module.rules) {
-          newRules.push(this._processRule(rule, packagePath));
+          newRules.push(this.processRule(rule, packagePath));
         }
 
         logger.info(`copied ${newRules.length - lastNewRuleLength} rules from ${webpackConfigPath}`);
