@@ -1,5 +1,3 @@
-const path = require('node:path');
-
 /** @type {import('webpack').Configuration} */
 module.exports = {
   mode: 'development',

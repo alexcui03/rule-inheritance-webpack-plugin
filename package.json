@@ -14,9 +14,13 @@
   ],
   "main": "index.js",
   "scripts": {
+    "lint": "eslint",
     "test": "jest --verbose"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.1.0",
+    "globals": "^17.4.0",
     "jest": "^30.3.0",
     "webpack": "^5.0.0"
   },
