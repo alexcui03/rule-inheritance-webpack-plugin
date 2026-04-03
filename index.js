@@ -17,6 +17,7 @@ const Module = require('node:module');
 /**
  * @typedef {object} Options
  * @property {string[]} packages Path to packages to inherit webpack configuration from.
+ * @property {boolean} [recursive] Process rules recursively.
  */
 
 class RuleInheritancePlugin {
@@ -129,22 +130,42 @@ class RuleInheritancePlugin {
   }
 
   /**
+   * Get nherited rules from given packages.
+   * @param {any} logger Webpack logger.
+   * @returns Inherited rules.
+   */
+  doRuleInheritance(logger) {
+    /** @type {Rule[]} */
+    const newRules = [];
+
+    for (const packagePath of this.options.packages) {
+      const config = this.getPackageConfig(packagePath);
+      if (!config) continue;
+
+      // Inherit rules recursively.
+      if (this.options.recursive && Array.isArray(config.plugins)) {
+        for (const plugin of config.plugins) {
+          if (plugin instanceof RuleInheritancePlugin) {
+            newRules = newRules.concat(plugin.doRuleInheritance());
+          }
+        }
+      }
+
+      const inheritedRules = this.getInheritedRules(config, packagePath);
+      logger.info(`inherit ${inheritedRules.length} rules from ${packagePath}`);
+      newRules = newRules.concat(inheritedRules);
+    }
+
+    return newRules;
+  }
+
+  /**
    * @param {Compiler} compiler
    */
   apply(compiler) {
     compiler.hooks.afterEnvironment.tap('RuleInheritancePlugin', () => {
       const logger = compiler.getInfrastructureLogger('rule-inheritance-webpack-plugin');
-
-      /** @type {Rule[]} */
-      for (const packagePath of this.options.packages) {
-        const config = this.getPackageConfig(packagePath);
-        if (!config) continue;
-
-        const inheritedRules = this.getInheritedRules(config, packagePath);
-        logger.info(`inherit ${inheritedRules.length} rules from ${packagePath}`);
-        newRules = newRules.concat(inheritedRules);
-      }
-
+      const newRules = this.doRuleInheritance(logger);
       compiler.options.module.rules.push(...newRules);
     });
   }
