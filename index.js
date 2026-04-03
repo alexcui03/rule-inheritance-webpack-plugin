@@ -163,7 +163,7 @@ class RuleInheritancePlugin {
               Object.hasOwnProperty.call(plugin, 'doRuleInheritance') &&
               typeof plugin.doRuleInheritance === 'function'
             ) {
-              newRules = newRules.concat(plugin.doRuleInheritance());
+              newRules.push(...plugin.doRuleInheritance());
             }
           }
         }
@@ -171,7 +171,7 @@ class RuleInheritancePlugin {
 
       const inheritedRules = this.getInheritedRules(config, packagePath);
       logger.info(`inherit ${inheritedRules.length} rules from ${packagePath}`);
-      newRules = newRules.concat(inheritedRules);
+      newRules.push(...inheritedRules);
     }
 
     return newRules;
