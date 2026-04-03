@@ -106,13 +106,12 @@ class RuleInheritancePlugin {
 
   /**
    * Get webpack configuration from given package.
-   * @param {*} packagePath Path to package.
+   * @param {string} packagePath Path to package.
    * @returns {Configuration | null} Webpack config object, null if config doesn't exist.
    */
   getPackageConfig(packagePath) {
     const webpackConfigPath = path.join(packagePath, 'webpack.config.js');
     if (!fs.existsSync(webpackConfigPath)) {
-      logger.error(`${packagePath} doesn't contain webpack.config.js`);
       return null;
     }
 
@@ -150,7 +149,10 @@ class RuleInheritancePlugin {
 
     for (const packagePath of this.options.packages) {
       const config = this.getPackageConfig(packagePath);
-      if (!config) continue;
+      if (!config) {
+        logger.error(`${packagePath} doesn't contain webpack.config.js`);
+        continue;
+      }
 
       // Inherit rules recursively.
       const PluginClass = this.getPluginClassFromPackage(packagePath);
