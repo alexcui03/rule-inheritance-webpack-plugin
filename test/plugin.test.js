@@ -10,6 +10,24 @@ const webpack = require('webpack');
 
 const RuleInheritancePlugin = require('../index');
 
+/**
+ * Transform all RegExp in object to its string value, to fix jest issue with
+ * structuredClone.
+ * @param {any} object Object to transform.
+ * @returns Transformed object.
+ */
+function transformRegExp(object) {
+  for (const key in object) {
+    if (object[key].constructor.name === 'RegExp') {
+      object[key] = object[key].source;
+    } else if (typeof object[key] === 'object') {
+      transformRegExp(object[key]);
+    }
+  }
+
+  return object;
+}
+
 describe('RuleInheritancePlugin', () => {
   test('simple', () => {
     /** @type {webpack.Configuration} */
@@ -24,16 +42,76 @@ describe('RuleInheritancePlugin', () => {
     };
 
     const compiler = webpack(options);
-    const rules = compiler.options.module.rules;
+    const rules = transformRegExp(compiler.options.module.rules);
 
-    expect(rules).toStrictEqual([
+    expect(rules).toEqual([
       {
-        test: /\.txt$/,
+        test: /\.txt$/.source,
         loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
         include: [
           path.resolve(__dirname, 'fixtures/sample-package')
         ]
       }
-    ])
+    ]);
+  });
+
+  test('recursive', () => {
+    /** @type {webpack.Configuration} */
+    const options = {
+      plugins: [
+        new RuleInheritancePlugin({
+          packages: [
+            path.resolve(__dirname, 'fixtures/another-package')
+          ]
+        })
+      ]
+    };
+
+    const compiler = webpack(options);
+    const rules = transformRegExp(compiler.options.module.rules);
+
+    expect(rules).toEqual([
+      {
+        test: /\.txt$/.source,
+        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        include: [
+          path.resolve(__dirname, 'fixtures/sample-package')
+        ]
+      },
+      {
+        test: /\.png$/.source,
+        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        include: [
+          path.resolve(__dirname, 'fixtures/another-package')
+        ]
+      }
+    ]);
+  });
+
+  test('non recursive', () => {
+    /** @type {webpack.Configuration} */
+    const options = {
+      plugins: [
+        new RuleInheritancePlugin({
+          packages: [
+            path.resolve(__dirname, 'fixtures/another-package')
+          ],
+          recursive: false
+        })
+      ]
+    };
+
+    const compiler = webpack(options);
+    const rules = transformRegExp(compiler.options.module.rules);
+
+    expect(rules).toEqual([
+      {
+        test: /\.png$/.source,
+        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        include: [
+          path.resolve(__dirname, 'fixtures/another-package')
+        ]
+      }
+    ]);
   });
 });

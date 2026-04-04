@@ -17,15 +17,21 @@ const Module = require('node:module');
 /**
  * @typedef {object} Options
  * @property {string[]} packages Path to packages to inherit webpack configuration from.
- * @property {boolean} [recursive] Process rules recursively.
+ * @property {boolean} recursive Process rules recursively.
  */
+
+/** @type {Options} */
+const defaultOptions = {
+  packages: [],
+  recursive: true
+};
 
 class RuleInheritancePlugin {
   /**
-   * @param {Options} options
+   * @param {Partial<Options>} options
    */
-  constructor(options = {packages: []}) {
-    this.options = options;
+  constructor(options) {
+    this.options = Object.assign({}, defaultOptions, options);
   }
 
   /**
@@ -132,9 +138,10 @@ class RuleInheritancePlugin {
     if (!config.module || !config.module.rules) return [];
 
     return config.module.rules.map((rule) => {
-      this.updateLoader(rule, packagePath);
-      this.updateRuleCondition(rule, packagePath);
-      return rule;
+      const newRule = structuredClone(rule);
+      this.updateLoader(newRule, packagePath);
+      this.updateRuleCondition(newRule, packagePath);
+      return newRule;
     });
   }
 
@@ -159,11 +166,8 @@ class RuleInheritancePlugin {
       if (this.options.recursive && Array.isArray(config.plugins)) {
         for (const plugin of config.plugins) {
           if (plugin instanceof PluginClass) {
-            if (
-              Object.hasOwnProperty.call(plugin, 'doRuleInheritance') &&
-              typeof plugin.doRuleInheritance === 'function'
-            ) {
-              newRules.push(...plugin.doRuleInheritance());
+            if (typeof plugin.doRuleInheritance === 'function') {
+              newRules.push(...plugin.doRuleInheritance(logger));
             }
           }
         }
