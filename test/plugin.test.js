@@ -32,6 +32,12 @@ describe('RuleInheritancePlugin', () => {
   test('simple', () => {
     /** @type {webpack.Configuration} */
     const options = {
+      module: {
+        rules: [{
+          test: /\.svg$/,
+          loader: 'sample-loader'
+        }]
+      },
       plugins: [
         new RuleInheritancePlugin({
           packages: [
@@ -51,6 +57,10 @@ describe('RuleInheritancePlugin', () => {
         include: [
           path.resolve(__dirname, 'fixtures/sample-package')
         ]
+      },
+      {
+        test: /\.svg$/.source,
+        loader: 'sample-loader'
       }
     ]);
   });

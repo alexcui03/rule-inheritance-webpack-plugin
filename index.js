@@ -205,7 +205,7 @@ class RuleInheritancePlugin {
 
       const inheritedPackages = new Set();
       const newRules = this.doRuleInheritance(logger, inheritedPackages);
-      compiler.options.module.rules.push(...newRules);
+      compiler.options.module.rules = newRules.concat(compiler.options.module.rules);
     });
   }
 }
