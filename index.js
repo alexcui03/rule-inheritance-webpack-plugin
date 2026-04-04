@@ -153,13 +153,21 @@ class RuleInheritancePlugin {
   /**
    * Get nherited rules from given packages.
    * @param {any} logger Webpack logger.
+   * @param {Set<string>} inheritedPackages Set of packages' path that are inherited.
    * @returns Inherited rules.
    */
-  doRuleInheritance(logger) {
+  doRuleInheritance(logger, inheritedPackages) {
     /** @type {Rule[]} */
     const newRules = [];
 
     for (const packagePath of this.options.packages) {
+      if (inheritedPackages.has(packagePath)) {
+        logger.error(`skip ${packagePath} since it has been inherited`);
+        continue;
+      } else {
+        inheritedPackages.add(packagePath);
+      }
+
       const config = this.getPackageConfig(packagePath);
       if (!config) {
         logger.error(`${packagePath} doesn't contain webpack.config.js`);
@@ -173,7 +181,7 @@ class RuleInheritancePlugin {
           for (const plugin of config.plugins) {
             if (plugin instanceof PluginClass) {
               if (typeof plugin.doRuleInheritance === 'function') {
-                newRules.push(...plugin.doRuleInheritance(logger));
+                newRules.push(...plugin.doRuleInheritance(logger, inheritedPackages));
               }
             }
           }
@@ -194,7 +202,9 @@ class RuleInheritancePlugin {
   apply(compiler) {
     compiler.hooks.afterEnvironment.tap('RuleInheritancePlugin', () => {
       const logger = compiler.getInfrastructureLogger('rule-inheritance-webpack-plugin');
-      const newRules = this.doRuleInheritance(logger);
+
+      const inheritedPackages = new Set();
+      const newRules = this.doRuleInheritance(logger, inheritedPackages);
       compiler.options.module.rules.push(...newRules);
     });
   }
