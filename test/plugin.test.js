@@ -13,8 +13,8 @@ const RuleInheritancePlugin = require('../index');
 /**
  * Transform all RegExp in object to its string value, to fix jest issue with
  * structuredClone.
- * @param {any} object Object to transform.
- * @returns Transformed object.
+ * @param {object} object Object to transform.
+ * @returns {object} Transformed object.
  */
 function transformRegExp(object) {
   for (const key in object) {

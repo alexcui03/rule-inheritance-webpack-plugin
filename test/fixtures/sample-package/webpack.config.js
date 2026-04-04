@@ -3,7 +3,7 @@ module.exports = {
   mode: 'development',
   entry: 'index.js',
   output: {
-    filename: '[name].js',
+    filename: '[name].js'
   },
   module: {
     rules: [{

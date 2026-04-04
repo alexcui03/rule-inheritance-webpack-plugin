@@ -28,7 +28,7 @@ const defaultOptions = {
 
 class RuleInheritancePlugin {
   /**
-   * @param {Partial<Options>} options
+   * @param {Partial<Options>} options Options.
    */
   constructor(options) {
     this.options = Object.assign({}, defaultOptions, options);
@@ -48,7 +48,7 @@ class RuleInheritancePlugin {
   /**
    * Get RuleInheritancePlugin class from specific package.
    * @param {string} packagePath Path to apply the require.
-   * @returns {(new (...args) => any) | null} RuleInheritancePlugin class, null if no
+   * @returns {(new (...args: any[]) => any) | null} RuleInheritancePlugin class, null if no
    * package named 'rule-inheritance-webpack-plugin'.
    */
   getPluginClassFromPackage(packagePath) {
@@ -154,7 +154,7 @@ class RuleInheritancePlugin {
    * Get nherited rules from given packages.
    * @param {any} logger Webpack logger.
    * @param {Set<string>} inheritedPackages Set of packages' path that are inherited.
-   * @returns Inherited rules.
+   * @returns {Rule[]} Inherited rules.
    */
   doRuleInheritance(logger, inheritedPackages) {
     /** @type {Rule[]} */
@@ -197,7 +197,7 @@ class RuleInheritancePlugin {
   }
 
   /**
-   * @param {Compiler} compiler
+   * @param {Compiler} compiler Webpack compiler object.
    */
   apply(compiler) {
     compiler.hooks.afterEnvironment.tap('RuleInheritancePlugin', () => {

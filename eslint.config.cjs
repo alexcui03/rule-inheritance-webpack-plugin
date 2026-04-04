@@ -25,13 +25,14 @@ module.exports = [
         code: 120,
         tabWidth: 2
       }],
-      'comma-dangle': ['error', 'never']
+      'comma-dangle': ['error', 'never'],
+      'jsdoc/check-values': ['off']
     }
   },
   {
     files: [
       'index.js',
-      'eslint.config.js'
+      '*.config.js'
     ],
     languageOptions: {
       globals: {
@@ -43,6 +44,9 @@ module.exports = [
     files: [
       'test/**/*.js'
     ],
+    rules: {
+      'no-invalid-this': ['off']
+    },
     languageOptions: {
       globals: {
         ...globals.node,
