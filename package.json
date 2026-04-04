@@ -1,6 +1,6 @@
 {
   "name": "rule-inheritance-webpack-plugin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Inherit webpack rules from sub-packages.",
   "author": "Alex Cui",
   "license": "MIT",
@@ -16,6 +16,9 @@
     "inheritance",
     "monorepo",
     "config"
+  ],
+  "files": [
+    "index.js"
   ],
   "main": "index.js",
   "scripts": {
