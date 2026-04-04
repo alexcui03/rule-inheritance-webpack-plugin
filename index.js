@@ -48,11 +48,16 @@ class RuleInheritancePlugin {
   /**
    * Get RuleInheritancePlugin class from specific package.
    * @param {string} packagePath Path to apply the require.
-   * @returns {new (...args) => any} RuleInheritancePlugin class.
+   * @returns {(new (...args) => any) | null} RuleInheritancePlugin class, null if no
+   * package named 'rule-inheritance-webpack-plugin'.
    */
   getPluginClassFromPackage(packagePath) {
-    const packageRequire = Module.createRequire(packagePath);
-    return packageRequire('rule-inheritance-webpack-plugin');
+    try {
+      const packageRequire = Module.createRequire(packagePath);
+      return packageRequire('rule-inheritance-webpack-plugin');
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -162,12 +167,14 @@ class RuleInheritancePlugin {
       }
 
       // Inherit rules recursively.
-      const PluginClass = this.getPluginClassFromPackage(packagePath);
       if (this.options.recursive && Array.isArray(config.plugins)) {
-        for (const plugin of config.plugins) {
-          if (plugin instanceof PluginClass) {
-            if (typeof plugin.doRuleInheritance === 'function') {
-              newRules.push(...plugin.doRuleInheritance(logger));
+        const PluginClass = this.getPluginClassFromPackage(packagePath);
+        if (PluginClass !== null) {
+          for (const plugin of config.plugins) {
+            if (plugin instanceof PluginClass) {
+              if (typeof plugin.doRuleInheritance === 'function') {
+                newRules.push(...plugin.doRuleInheritance(logger));
+              }
             }
           }
         }
