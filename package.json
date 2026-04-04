@@ -4,6 +4,11 @@
   "description": "Inherit webpack rules from sub-packages.",
   "author": "Alex Cui",
   "license": "MIT",
+  "homepage": "https://github.com/alexcui03/rule-inheritance-webpack-plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexcui03/rule-inheritance-webpack-plugin.git"
+  },
   "keywords": [
     "webpack",
     "plugin",
