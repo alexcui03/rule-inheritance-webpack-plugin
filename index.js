@@ -170,7 +170,7 @@ class RuleInheritancePlugin {
 
     for (const packagePath of this.options.packages) {
       if (inheritedPackages.has(packagePath)) {
-        logger.error(`skip ${packagePath} since it has been inherited`);
+        logger.info(`skip ${packagePath} since it has been inherited`);
         continue;
       } else {
         inheritedPackages.add(packagePath);

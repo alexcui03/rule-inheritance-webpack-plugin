@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Package existence will be checked before checking webpack.config.js.
+- Log info instead of an error when package is skipped.
 
 ## [0.3.0] - 2026-04-04
 
