@@ -118,12 +118,20 @@ class RuleInheritancePlugin {
   /**
    * Get webpack configuration from given package.
    * @param {string} packagePath Path to package.
-   * @returns {Configuration | null} Webpack config object, null if config doesn't exist.
+   * @returns {Configuration} Webpack config object. An error will be thrown if package doesn't exist.
    */
   getPackageConfig(packagePath) {
+    if (
+      !fs.existsSync(packagePath) ||
+      !fs.statSync(packagePath).isDirectory() ||
+      !fs.existsSync(path.join(packagePath, 'package.json'))
+    ) {
+      throw new Error(`${packagePath} is not a valid package`);
+    }
+
     const webpackConfigPath = path.join(packagePath, 'webpack.config.js');
     if (!fs.existsSync(webpackConfigPath)) {
-      return null;
+      throw new Error(`${packagePath} doesn't contain webpack.config.js`);
     }
 
     /** @type {Configuration | Configuration[]} */
@@ -168,9 +176,11 @@ class RuleInheritancePlugin {
         inheritedPackages.add(packagePath);
       }
 
-      const config = this.getPackageConfig(packagePath);
-      if (!config) {
-        logger.error(`${packagePath} doesn't contain webpack.config.js`);
+      let config;
+      try {
+        config = this.getPackageConfig(packagePath);
+      } catch (error) {
+        logger.error(error.message);
         continue;
       }
 
