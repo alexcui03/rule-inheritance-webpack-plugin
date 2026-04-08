@@ -61,6 +61,41 @@ class RuleInheritancePlugin {
   }
 
   /**
+   * Update rules by loader type. (e.g. ts-loader needs a correct tsconfig.json path
+   * when it is not specified)
+   * @param {Rule} rule Rule object, might be modified by this function.
+   * @param {string} loader Loader name.
+   * @param {string} packagePath Path to package.
+   */
+  updateLoaderByType(rule, loader, packagePath) {
+    if (loader === 'ts-loader') {
+      const tsconfig = path.join(packagePath, 'tsconfig.json');
+      if (!fs.existsSync(tsconfig)) {
+        return;
+      }
+
+      if (typeof rule.use === 'string') {
+        rule.use = {
+          loader: rule.use,
+          options: {
+            configFile: tsconfig
+          }
+        };
+      } else {
+        if (rule.options) {
+          if (!rule.options.configFile) {
+            rule.options.configFile = tsconfig;
+          }
+        } else {
+          rule.options = {
+            configFile: tsconfig
+          };
+        }
+      }
+    }
+  }
+
+  /**
    * Update loader path to make it accessiable in parent package.
    * @param {Rule} rule Rule object.
    * @param {string} packagePath Path to package.
@@ -69,22 +104,30 @@ class RuleInheritancePlugin {
   updateLoader(rule, packagePath) {
     if (rule.loader) {
       // { loader: 'loader-name' }
+      const loader = rule.loader;
       rule.loader = this.getModulePath(rule.loader, packagePath);
+      this.updateLoaderByType(rule, loader, packagePath);
     } else if (rule.use) {
       if (typeof rule.use === 'string') {
         // { use: 'loader-name' }
+        const loader = rule.use;
         rule.use = this.getModulePath(rule.use, packagePath);
+        this.updateLoaderByType(rule, loader, packagePath);
       } else if (Array.isArray(rule.use)) {
         // { use: [{ loader: 'loader-name' }] }
         for (const loader of rule.use) {
           if (loader.loader) {
+            const loaderName = rule.use;
             loader.loader = this.getModulePath(loader.loader, packagePath);
+            this.updateLoaderByType(loader, loaderName, packagePath);
           }
         }
       } else if (typeof rule.use === 'object') {
         // { use: { loader: 'loader-name' } }
         if (rule.use.loader) {
+          const loader = rule.use.loader;
           rule.use.loader = this.getModulePath(rule.use.loader, packagePath);
+          this.updateLoaderByType(loader, rule.use, packagePath);
         }
       } else {
         // @todo other cases
