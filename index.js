@@ -49,7 +49,9 @@ const builtinCallbacks = {
       };
     } else {
       if (rule.options) {
-        if (!rule.options.configFile) {
+        if (rule.options.configFile) {
+          rule.options.configFile = path.resolve(packagePath, rule.options.configFile);
+        } else {
           rule.options.configFile = tsconfig;
         }
       } else {
