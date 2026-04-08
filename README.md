@@ -21,7 +21,15 @@ module.exports = {
 
       // [Optional] True to inherit rules recursively if sub-package also have
       // a RuleInheritancePlugin. Default value is `true`.
-      recursive: true
+      recursive: true,
+
+      // [Optional] Map from loader name to callback function which is called
+      // when processing loader options. (e.g. Redirect to correct config path)
+      callbacks: {},
+
+      // [Optional] True ignore builtin callback functions. Default value is
+      // `false`.
+      ignoreBuiltinCallbacks: false
     })
   ],
 };
