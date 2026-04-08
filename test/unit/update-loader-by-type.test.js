@@ -46,7 +46,7 @@ describe('updateLoaderByType', () => {
     }, {
       loader: 'ts-loader',
       options: {
-        configFile: CUSTOM_CONFIG_FILE
+        configFile: path.resolve(TEST_PACKAGE_PATH, CUSTOM_CONFIG_FILE)
       }
     }, {
       use: {
