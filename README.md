@@ -34,3 +34,6 @@ module.exports = {
   ],
 };
 ```
+
+We have defiend some default callbacks to update loader options:
+- `ts-loader`: Update or add `options.configFile` to correct path.
