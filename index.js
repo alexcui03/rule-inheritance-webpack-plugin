@@ -15,23 +15,87 @@ const Module = require('node:module');
  */
 
 /**
- * @typedef {object} Options
- * @property {string[]} packages Path to packages to inherit webpack configuration from.
- * @property {boolean} recursive Process rules recursively.
+ * Custom callback function to process loader options.
+ * @callback Callback
+ * @param {Rule} rule Rule object or {loader: string; options: any} object in the 'use' field.
+ *    If rule.use is set, it should be a string specifying a loader.
+ * @param {string} loader Loader name.
+ * @param {string} packagePath Path to package.
+ * @returns {void}
  */
 
-/** @type {Options} */
+/**
+ * @typedef {object} Options
+ * @property {string[]} packages Path to packages to inherit webpack configuration from.
+ * @property {boolean} [recursive] Whether process rules recursively.
+ * @property {{[key: string]: Callback}} [callbacks] Custom callback function to process loader options.
+ * @property {boolean} [ignoreBuiltinCallbacks] Whether ignore builtin callback functions.
+ */
+
+const builtinCallbacks = {
+  /** @type {Callback} */
+  'ts-loader': (rule, loader, packagePath) => {
+    const tsconfig = path.join(packagePath, 'tsconfig.json');
+    if (!fs.existsSync(tsconfig)) {
+      return;
+    }
+
+    if (typeof rule.use === 'string') {
+      rule.use = {
+        loader: rule.use,
+        options: {
+          configFile: tsconfig
+        }
+      };
+    } else {
+      if (rule.options) {
+        if (!rule.options.configFile) {
+          rule.options.configFile = tsconfig;
+        }
+      } else {
+        rule.options = {
+          configFile: tsconfig
+        };
+      }
+    }
+  }
+};
+
+/** @type {Required<Options>} */
 const defaultOptions = {
   packages: [],
-  recursive: true
+  recursive: true,
+  callbacks: {},
+  ignoreBuiltinCallbacks: false
 };
 
 class RuleInheritancePlugin {
   /**
-   * @param {Partial<Options>} options Options.
+   * @param {Options} options Options.
    */
   constructor(options) {
+    /** @type {Required<Options>} */
     this.options = Object.assign({}, defaultOptions, options);
+
+    /** @type {Map<string, Callback>} */
+    this.loaderCallbacks = new Map();
+
+    if (!this.options.ignoreBuiltinCallbacks) {
+      for (const loader in builtinCallbacks) {
+        if (Object.prototype.hasOwnProperty.call(builtinCallbacks, loader)) {
+          this.loaderCallbacks.set(loader, builtinCallbacks[loader]);
+        }
+      }
+    }
+
+    if (this.options.callbacks) {
+      const callbacks = this.options.callbacks;
+      for (const loader in callbacks) {
+        if (Object.prototype.hasOwnProperty.call(callbacks, loader)) {
+          this.loaderCallbacks.set(loader, callbacks[loader]);
+        }
+      }
+    }
   }
 
   /**
@@ -68,30 +132,9 @@ class RuleInheritancePlugin {
    * @param {string} packagePath Path to package.
    */
   updateLoaderByType(rule, loader, packagePath) {
-    if (loader === 'ts-loader') {
-      const tsconfig = path.join(packagePath, 'tsconfig.json');
-      if (!fs.existsSync(tsconfig)) {
-        return;
-      }
-
-      if (typeof rule.use === 'string') {
-        rule.use = {
-          loader: rule.use,
-          options: {
-            configFile: tsconfig
-          }
-        };
-      } else {
-        if (rule.options) {
-          if (!rule.options.configFile) {
-            rule.options.configFile = tsconfig;
-          }
-        } else {
-          rule.options = {
-            configFile: tsconfig
-          };
-        }
-      }
+    if (this.loaderCallbacks.has(loader)) {
+      const callback = this.loaderCallbacks.get(loader);
+      callback(rule, loader, packagePath);
     }
   }
 
@@ -262,5 +305,7 @@ class RuleInheritancePlugin {
     });
   }
 }
+
+RuleInheritancePlugin.builtinCallbacks = builtinCallbacks;
 
 module.exports = RuleInheritancePlugin;

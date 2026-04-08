@@ -8,7 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Add default config file path for ts-loader.
+- Add 'callbacks' option to add callback functions to process loader options.
+- Add 'ignoreBuiltinCallbacks' option to ignore default callbacks for loader options processing.
+- Add default callback for 'ts-loader' to set correct config path by default.
 
 ### Changed
 
