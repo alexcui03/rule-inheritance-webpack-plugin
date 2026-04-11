@@ -26,7 +26,8 @@ module.exports = [
         tabWidth: 2
       }],
       'comma-dangle': ['error', 'never'],
-      'jsdoc/check-values': ['off']
+      'jsdoc/check-values': ['off'],
+      'object-curly-spacing': ['error', 'always']
     }
   },
   {
