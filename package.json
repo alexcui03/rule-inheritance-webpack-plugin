@@ -37,5 +37,8 @@
   "peerDependencies": {
     "webpack": "^5.0.0"
   },
-  "packageManager": "pnpm@10.22.0"
+  "packageManager": "pnpm@10.22.0",
+  "dependencies": {
+    "enhanced-resolve": "^5.20.1"
+  }
 }

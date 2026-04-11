@@ -27,7 +27,10 @@ module.exports = [
       }],
       'comma-dangle': ['error', 'never'],
       'jsdoc/check-values': ['off'],
-      'object-curly-spacing': ['error', 'always']
+      'object-curly-spacing': ['error', 'always'],
+      'indent': ['error', 2, {
+        SwitchCase: 1
+      }]
     }
   },
   {

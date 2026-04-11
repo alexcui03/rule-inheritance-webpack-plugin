@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- Correct config object will be chosen if the webpack output file and imported file are the same file, instead of choosing the first config.
+
 ## [0.4.0] - 2026-04-08
 
 ### Added

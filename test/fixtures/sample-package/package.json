@@ -2,7 +2,8 @@
   "name": "sample-package",
   "private": true,
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.node.js",
+  "browser": "dist/index.web.js",
   "description": "",
   "author": "",
   "scripts": {}

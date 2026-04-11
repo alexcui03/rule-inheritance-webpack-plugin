@@ -8,10 +8,14 @@ const path = require('node:path');
 const fs = require('node:fs');
 const Module = require('node:module');
 
+const webpack = require('webpack');
+const { create: createResolver } = require('enhanced-resolve');
+
 /**
  * @typedef {import('webpack').Compiler} Compiler
  * @typedef {import('webpack').Configuration} Configuration
  * @typedef {import('webpack').RuleSetRule} Rule
+ * @typedef {ReturnType<Compiler['getInfrastructureLogger']>} Logger
  */
 
 /**
@@ -206,9 +210,13 @@ class RuleInheritancePlugin {
   /**
    * Get webpack configuration from given package.
    * @param {string} packagePath Path to package.
-   * @returns {Configuration} Webpack config object. An error will be thrown if package doesn't exist.
+   * @param {string[]} conditionNames Webpack condition names.
+   * @param {Logger} logger Webpack logger.
+   * @returns {webpack.WebpackOptionsNormalized} Webpack config object.
+   *    An error will be thrown if package doesn't exist.
    */
-  getPackageConfig(packagePath) {
+  getPackageConfig(packagePath, conditionNames, logger) {
+    // Check that package path should be a existing directory and package.json must exists.
     if (
       !fs.existsSync(packagePath) ||
       !fs.statSync(packagePath).isDirectory() ||
@@ -217,16 +225,63 @@ class RuleInheritancePlugin {
       throw new Error(`${packagePath} is not a valid package`);
     }
 
+    // Load webpack.config.js.
     const webpackConfigPath = path.join(packagePath, 'webpack.config.js');
     if (!fs.existsSync(webpackConfigPath)) {
       throw new Error(`${packagePath} doesn't contain webpack.config.js`);
     }
 
-    /** @type {Configuration | Configuration[]} */
-    let config = require(webpackConfigPath);
-    if (Array.isArray(config)) config = config[0]; // use first webpack config
+    /** @type {webpack.Configuration | webpack.Configuration[]} */
+    let webpackConfigs = require(webpackConfigPath);
+    if (!Array.isArray(webpackConfigs)) {
+      webpackConfigs = [webpackConfigs];
+    }
+    if (webpackConfigs.length === 0) {
+      throw new Error(`invalid webpack config, get: ${JSON.stringify(webpackConfigs)}`);
+    }
 
-    return config;
+    // Get entry in current condition name, ignoring "webpack".
+    const resolver = createResolver.sync({
+      conditionNames: conditionNames.filter((value) => value !== 'webpack')
+    });
+    const resolvedPath = resolver({}, packagePath, '.');
+
+    let firstOption = null; // Record the first normalized options, it will be returned by default.
+
+    // Check for each webpack config and choose the config that has the same output path to resolved path.
+    for (const config of webpackConfigs) {
+      // Change working directory to load default configs for webpack.
+      const cwd = process.cwd();
+      process.chdir(packagePath);
+
+      const options = webpack.config.getNormalizedWebpackOptions(config);
+      webpack.config.applyWebpackOptionsDefaults(options);
+
+      // Restore working directory.
+      process.chdir(cwd);
+
+      if (!firstOption) firstOption = options;
+
+      if (typeof options.entry === 'function') {
+        // @TODO options.entry is Promise<EntryStaticNormalized>
+        throw new Error('options.entry with function type is not supported now');
+      } else {
+        for (const entry of Object.keys(options.entry)) {
+          const outputPath = path.resolve(
+            options.output.path,
+            options.output.filename.replaceAll('[name]', entry) // @todo support for other placeholders
+          );
+
+          // Check if output path fits resolved path.
+          if (path.relative(resolvedPath, outputPath) === '') {
+            return options;
+          }
+        }
+      }
+    }
+
+    logger.warn(`no satisfied config found in ${packagePath}, the first config will be used`);
+    return firstOption;
   }
 
   /**
@@ -248,11 +303,12 @@ class RuleInheritancePlugin {
 
   /**
    * Get nherited rules from given packages.
-   * @param {any} logger Webpack logger.
-   * @param {Set<string>} inheritedPackages Set of packages' path that are inherited.
+   * @param {string[]} conditionNames Webpack condition names.
+   * @param {Logger} logger Webpack logger.
+   * @param {Set<string>} [inheritedPackages] Set of packages' path that are inherited.
    * @returns {Rule[]} Inherited rules.
    */
-  doRuleInheritance(logger, inheritedPackages) {
+  doRuleInheritance(conditionNames, logger, inheritedPackages = new Set()) {
     /** @type {Rule[]} */
     const newRules = [];
 
@@ -266,7 +322,7 @@ class RuleInheritancePlugin {
 
       let config;
       try {
-        config = this.getPackageConfig(packagePath);
+        config = this.getPackageConfig(packagePath, conditionNames, logger);
       } catch (error) {
         logger.error(error.message);
         continue;
@@ -277,10 +333,12 @@ class RuleInheritancePlugin {
         const PluginClass = this.getPluginClassFromPackage(packagePath);
         if (PluginClass !== null) {
           for (const plugin of config.plugins) {
-            if (plugin instanceof PluginClass) {
-              if (typeof plugin.doRuleInheritance === 'function') {
-                newRules.push(...plugin.doRuleInheritance(logger, inheritedPackages));
-              }
+            if (
+              plugin instanceof PluginClass &&
+              typeof plugin.doRuleInheritance === 'function'
+            ) {
+              const rules = plugin.doRuleInheritance(config.resolve.conditionNames, logger, inheritedPackages);
+              newRules.push(...rules);
             }
           }
         }
@@ -301,8 +359,7 @@ class RuleInheritancePlugin {
     compiler.hooks.afterEnvironment.tap('RuleInheritancePlugin', () => {
       const logger = compiler.getInfrastructureLogger('rule-inheritance-webpack-plugin');
 
-      const inheritedPackages = new Set();
-      const newRules = this.doRuleInheritance(logger, inheritedPackages);
+      const newRules = this.doRuleInheritance(compiler.options.resolve.conditionNames, logger);
       compiler.options.module.rules = newRules.concat(compiler.options.module.rules);
     });
   }
