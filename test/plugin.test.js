@@ -158,4 +158,41 @@ describe('RuleInheritancePlugin', () => {
       }
     ]);
   });
+
+  test('node target', () => {
+    /** @type {webpack.Configuration} */
+    const options = {
+      target: 'node',
+      module: {
+        rules: [{
+          test: /\.svg$/,
+          loader: 'sample-loader'
+        }]
+      },
+      plugins: [
+        new RuleInheritancePlugin({
+          packages: [
+            path.resolve(__dirname, 'fixtures/sample-package')
+          ]
+        })
+      ]
+    };
+
+    const compiler = webpack(options);
+    const rules = transformRegExp(compiler.options.module.rules);
+
+    expect(rules).toEqual([
+      {
+        test: /\.node\.txt$/.source,
+        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        include: [
+          path.resolve(__dirname, 'fixtures/sample-package')
+        ]
+      },
+      {
+        test: /\.svg$/.source,
+        loader: 'sample-loader'
+      }
+    ]);
+  });
 });

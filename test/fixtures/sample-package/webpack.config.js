@@ -11,7 +11,7 @@ module.exports = [
     },
     module: {
       rules: [{
-        test: /\.web\.txt$/,
+        test: /\.txt$/,
         loader: 'sample-loader'
       }]
     }
@@ -27,7 +27,7 @@ module.exports = [
     },
     module: {
       rules: [{
-        test: /\.txt$/,
+        test: /\.node\.txt$/,
         loader: 'sample-loader'
       }]
     }

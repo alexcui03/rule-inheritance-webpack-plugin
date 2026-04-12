@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const Module = require('node:module');
 
 const webpack = require('webpack');
+const { cleverMerge } = require('webpack/lib/util/cleverMerge');
 const { create: createResolver } = require('enhanced-resolve');
 
 /**
@@ -16,6 +17,7 @@ const { create: createResolver } = require('enhanced-resolve');
  * @typedef {import('webpack').Configuration} Configuration
  * @typedef {import('webpack').RuleSetRule} Rule
  * @typedef {ReturnType<Compiler['getInfrastructureLogger']>} Logger
+ * @typedef {import('enhanced-resolve').ResolveOptionsOptionalFS} ResolveOptions
  */
 
 /**
@@ -102,6 +104,27 @@ class RuleInheritancePlugin {
         }
       }
     }
+  }
+
+  /**
+   * Get resolve options from webpack config.
+   * @param {Required<webpack.ResolveOptions>} options Resovle options of webpack config.
+   * @param {string} [type] Type of dependency, default to commonjs. (e.g. commonjs, esm, loader, etc.)
+   * @returns {ResolveOptions} Resolve options.
+   */
+  getResolveOptionsFromWebpack(options, type = 'commonjs') {
+    const resolveOption = {
+      modules: options.modules,
+      aliasFields: options.aliasFields,
+      conditionNames: options.conditionNames,
+      mainFiles: options.mainFiles,
+      mainFields: options.mainFields,
+      extensions: options.extensions,
+      exportsFields: options.exportsFields,
+      roots: options.roots
+    };
+    // @todo decide which config to use.
+    return cleverMerge(resolveOption, options.byDependency[type]);
   }
 
   /**
@@ -210,12 +233,12 @@ class RuleInheritancePlugin {
   /**
    * Get webpack configuration from given package.
    * @param {string} packagePath Path to package.
-   * @param {string[]} conditionNames Webpack condition names.
+   * @param {ResolveOptions} resolveOptions Resolve options.
    * @param {Logger} logger Webpack logger.
    * @returns {webpack.WebpackOptionsNormalized} Webpack config object.
    *    An error will be thrown if package doesn't exist.
    */
-  getPackageConfig(packagePath, conditionNames, logger) {
+  getPackageConfig(packagePath, resolveOptions, logger) {
     // Check that package path should be a existing directory and package.json must exists.
     if (
       !fs.existsSync(packagePath) ||
@@ -240,10 +263,12 @@ class RuleInheritancePlugin {
       throw new Error(`invalid webpack config, get: ${JSON.stringify(webpackConfigs)}`);
     }
 
-    // Get entry in current condition name, ignoring "webpack".
-    const resolver = createResolver.sync({
-      conditionNames: conditionNames.filter((value) => value !== 'webpack')
-    });
+    // Get entry in current condition name.
+    if (resolveOptions.conditionNames) {
+      // Ignore "webpack" condition name.
+      resolveOptions.conditionNames = resolveOptions.conditionNames.filter((value) => value !== 'webpack');
+    }
+    const resolver = createResolver.sync(resolveOptions);
     const resolvedPath = resolver({}, packagePath, '.');
 
     let firstOption = null; // Record the first normalized options, it will be returned by default.
@@ -303,12 +328,12 @@ class RuleInheritancePlugin {
 
   /**
    * Get nherited rules from given packages.
-   * @param {string[]} conditionNames Webpack condition names.
+   * @param {ResolveOptions} resolveOptions Resolve options.
    * @param {Logger} logger Webpack logger.
    * @param {Set<string>} [inheritedPackages] Set of packages' path that are inherited.
    * @returns {Rule[]} Inherited rules.
    */
-  doRuleInheritance(conditionNames, logger, inheritedPackages = new Set()) {
+  doRuleInheritance(resolveOptions, logger, inheritedPackages = new Set()) {
     /** @type {Rule[]} */
     const newRules = [];
 
@@ -322,7 +347,7 @@ class RuleInheritancePlugin {
 
       let config;
       try {
-        config = this.getPackageConfig(packagePath, conditionNames, logger);
+        config = this.getPackageConfig(packagePath, resolveOptions, logger);
       } catch (error) {
         logger.error(error.message);
         continue;
@@ -337,7 +362,11 @@ class RuleInheritancePlugin {
               plugin instanceof PluginClass &&
               typeof plugin.doRuleInheritance === 'function'
             ) {
-              const rules = plugin.doRuleInheritance(config.resolve.conditionNames, logger, inheritedPackages);
+              const rules = plugin.doRuleInheritance(
+                this.getResolveOptionsFromWebpack(config.resolve),
+                logger,
+                inheritedPackages
+              );
               newRules.push(...rules);
             }
           }
@@ -359,7 +388,10 @@ class RuleInheritancePlugin {
     compiler.hooks.afterEnvironment.tap('RuleInheritancePlugin', () => {
       const logger = compiler.getInfrastructureLogger('rule-inheritance-webpack-plugin');
 
-      const newRules = this.doRuleInheritance(compiler.options.resolve.conditionNames, logger);
+      const newRules = this.doRuleInheritance(
+        this.getResolveOptionsFromWebpack(compiler.options.resolve),
+        logger
+      );
       compiler.options.module.rules = newRules.concat(compiler.options.module.rules);
     });
   }
