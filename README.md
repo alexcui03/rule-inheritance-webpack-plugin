@@ -27,7 +27,7 @@ module.exports = {
       // when processing loader options. (e.g. Redirect to correct config path)
       callbacks: {},
 
-      // [Optional] True ignore builtin callback functions. Default value is
+      // [Optional] True to ignore builtin callback functions. Default value is
       // `false`.
       ignoreBuiltinCallbacks: false
     })
