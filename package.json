@@ -25,6 +25,9 @@
     "lint": "eslint",
     "test": "jest --verbose"
   },
+  "dependencies": {
+    "enhanced-resolve": "^5.20.1"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.1.0",
@@ -37,8 +40,5 @@
   "peerDependencies": {
     "webpack": "^5.0.0"
   },
-  "packageManager": "pnpm@10.22.0",
-  "dependencies": {
-    "enhanced-resolve": "^5.20.1"
-  }
+  "packageManager": "pnpm@10.22.0"
 }
