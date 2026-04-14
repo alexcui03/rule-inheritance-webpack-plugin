@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Correct config object will be chosen if the webpack output file and imported file are the same file, instead of choosing the first config.
+- Try to find the webpack config whose entry's output path matches the path exported from the package. It will choose the first webpack config by default if multiple configs are exported.
 
 ## [0.4.0] - 2026-04-08
 
