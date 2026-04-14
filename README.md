@@ -4,6 +4,9 @@
 
 Inherit webpack rules from sub-packages. This plugin will copy all configuration from `module.rules` with additional `include` option to make rules are only applied in sub-packages. It will be useful when working with a monorepo with multiple webpack configurations.
 
+> [!IMPORTANT]
+> Currently we do not support multiple plugins coexists with different versions. If you are using this plugin in your monorepo, please ensure that all `rule-inheritance-webpack-plugin` are in the same version.
+
 ## Usage
 
 ```js
