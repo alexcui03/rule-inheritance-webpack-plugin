@@ -191,7 +191,7 @@ class RuleInheritancePlugin {
         // { use: [{ loader: 'loader-name' }] }
         for (const loader of rule.use) {
           if (loader.loader) {
-            const loaderName = rule.use;
+            const loaderName = loader.loader;
             loader.loader = this.getModulePath(loader.loader, packagePath);
             this.updateLoaderByType(loader, loaderName, packagePath);
           }
@@ -201,7 +201,7 @@ class RuleInheritancePlugin {
         if (rule.use.loader) {
           const loader = rule.use.loader;
           rule.use.loader = this.getModulePath(rule.use.loader, packagePath);
-          this.updateLoaderByType(loader, rule.use, packagePath);
+          this.updateLoaderByType(rule.use, loader, packagePath);
         }
       } else {
         // @todo other cases
@@ -335,6 +335,7 @@ class RuleInheritancePlugin {
   mergeCallbacks(callbacks) {
     for (const loader in callbacks) {
       if (Object.prototype.hasOwnProperty.call(callbacks, loader)) {
+        this.options.callbacks[loader] = callbacks[loader];
         this.loaderCallbacks.set(loader, callbacks[loader]);
       }
     }
