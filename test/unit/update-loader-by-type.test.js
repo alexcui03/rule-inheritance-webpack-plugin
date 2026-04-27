@@ -57,4 +57,37 @@ describe('updateLoaderByType', () => {
       }
     }]);
   });
+
+  test('babel-loader', () => {
+    const rules = [{
+      loader: 'babel-loader'
+    }, {
+      loader: 'babel-loader',
+      options: {
+        cwd: '/custom/cwd'
+      }
+    }, {
+      loader: 'babel-loader',
+      options: 'cacheDirectory=true'
+    }];
+
+    for (const rule of rules) {
+      this.plugin.updateLoaderByType(rule, 'babel-loader', TEST_PACKAGE_PATH);
+    }
+
+    expect(rules).toStrictEqual([{
+      loader: 'babel-loader',
+      options: {
+        cwd: TEST_PACKAGE_PATH
+      }
+    }, {
+      loader: 'babel-loader',
+      options: {
+        cwd: '/custom/cwd'
+      }
+    }, {
+      loader: 'babel-loader',
+      options: 'cacheDirectory=true'
+    }]);
+  });
 });

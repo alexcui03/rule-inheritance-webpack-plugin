@@ -23,7 +23,7 @@
   "main": "index.js",
   "scripts": {
     "lint": "eslint",
-    "test": "jest --verbose"
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --verbose"
   },
   "dependencies": {
     "enhanced-resolve": "^5.20.1"
