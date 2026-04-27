@@ -73,7 +73,7 @@ const builtinCallbacks = {
       rule.options = {};
     } else if (typeof rule.options === 'string') {
       console.warn(`We don't support string options for babel-loader in ${packagePath}. Ignoring.`);
-        return;
+      return;
     }
 
     if (typeof rule.use === 'string') {
