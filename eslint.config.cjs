@@ -46,7 +46,7 @@ module.exports = [
   },
   {
     files: [
-      'test/**/*.js'
+      'test/**/*.{js,cjs,mjs}'
     ],
     rules: {
       'no-invalid-this': ['off']

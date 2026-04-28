@@ -66,6 +66,27 @@ const builtinCallbacks = {
         };
       }
     }
+  },
+  /** @type {Callback} */
+  'babel-loader': (rule, loader, packagePath) => {
+    if (!rule.options) {
+      rule.options = {};
+    } else if (typeof rule.options === 'string') {
+      console.warn(`We don't support string options for babel-loader in ${packagePath}. Ignoring.`);
+      return;
+    }
+
+    if (typeof rule.use === 'string') {
+      rule.use = {
+        loader: rule.use,
+        options: {}
+      };
+    }
+
+    // https://babeljs.io/docs/options#cwd
+    if (!rule.options.cwd) {
+      rule.options.cwd = packagePath;
+    }
   }
 };
 
@@ -134,7 +155,8 @@ class RuleInheritancePlugin {
    * @returns {string} Path of module.
    */
   getModulePath(name, packagePath) {
-    const packageRequire = Module.createRequire(packagePath);
+    const targetPath = path.join(packagePath, 'package.json');
+    const packageRequire = Module.createRequire(targetPath);
     return packageRequire.resolve(name);
   }
 
@@ -146,7 +168,8 @@ class RuleInheritancePlugin {
    */
   getPluginClassFromPackage(packagePath) {
     try {
-      const packageRequire = Module.createRequire(packagePath);
+      const targetPath = path.join(packagePath, 'package.json');
+      const packageRequire = Module.createRequire(targetPath);
       return packageRequire('rule-inheritance-webpack-plugin');
     } catch {
       return null;
@@ -189,7 +212,7 @@ class RuleInheritancePlugin {
         // { use: [{ loader: 'loader-name' }] }
         for (const loader of rule.use) {
           if (loader.loader) {
-            const loaderName = rule.use;
+            const loaderName = loader.loader;
             loader.loader = this.getModulePath(loader.loader, packagePath);
             this.updateLoaderByType(loader, loaderName, packagePath);
           }
@@ -199,7 +222,7 @@ class RuleInheritancePlugin {
         if (rule.use.loader) {
           const loader = rule.use.loader;
           rule.use.loader = this.getModulePath(rule.use.loader, packagePath);
-          this.updateLoaderByType(loader, rule.use, packagePath);
+          this.updateLoaderByType(rule.use, loader, packagePath);
         }
       } else {
         // @todo other cases
@@ -327,6 +350,19 @@ class RuleInheritancePlugin {
   }
 
   /**
+   * Merge custom callbacks into the plugin instance.
+   * @param {{[key: string]: Callback}} callbacks Custom callbacks to merge.
+   */
+  mergeCallbacks(callbacks) {
+    for (const loader in callbacks) {
+      if (Object.prototype.hasOwnProperty.call(callbacks, loader)) {
+        this.options.callbacks[loader] = callbacks[loader];
+        this.loaderCallbacks.set(loader, callbacks[loader]);
+      }
+    }
+  }
+
+  /**
    * Get nherited rules from given packages.
    * @param {ResolveOptions} resolveOptions Resolve options.
    * @param {Logger} logger Webpack logger.
@@ -362,6 +398,7 @@ class RuleInheritancePlugin {
               plugin instanceof PluginClass &&
               typeof plugin.doRuleInheritance === 'function'
             ) {
+              plugin.mergeCallbacks(this.options.callbacks);
               const rules = plugin.doRuleInheritance(
                 this.getResolveOptionsFromWebpack(config.resolve),
                 logger,
