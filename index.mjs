@@ -1,11 +1,12 @@
-import { RuleInheritancePlugin as CJSPlugin } from './index';
+import RuleInheritancePlugin from './index';
 import { resolve } from 'import-meta-resolve';
-import { pathToFileURL, fileURLToPath, join } from 'path';
+import { join } from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 
-class RuleInheritancePlugin extends CJSPlugin {
+class ESMRuleInheritancePlugin extends RuleInheritancePlugin {
   /**
    * Get module real path that required from specific package.
-   * @override ESM may have different entry
+   * @override
    * @param {string} name Module name.
    * @param {string} packagePath Path to apply the require.
    * @returns {string} Path of module.
@@ -17,4 +18,4 @@ class RuleInheritancePlugin extends CJSPlugin {
   }
 }
 
-export default RuleInheritancePlugin;
+export default ESMRuleInheritancePlugin;

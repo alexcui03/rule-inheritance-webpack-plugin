@@ -20,8 +20,12 @@
   "files": [
     "index.js"
   ],
-  "main": "index.js",
-  "module": "index.mjs",
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.js"
+    }
+  },
   "scripts": {
     "lint": "eslint",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --verbose"
