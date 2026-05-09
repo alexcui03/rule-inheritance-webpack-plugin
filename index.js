@@ -105,6 +105,7 @@ class RuleInheritancePlugin {
   constructor(options) {
     /** @type {Required<Options>} */
     this.options = Object.assign({}, defaultOptions, options);
+    this.options.callbacks = { ...this.options.callbacks };
 
     /** @type {Map<string, Callback>} */
     this.loaderCallbacks = new Map();
@@ -398,9 +399,11 @@ class RuleInheritancePlugin {
               plugin instanceof PluginClass &&
               typeof plugin.doRuleInheritance === 'function'
             ) {
-              plugin.mergeCallbacks(this.options.callbacks);
-              const rules = plugin.doRuleInheritance(
-                this.getResolveOptionsFromWebpack(config.resolve),
+              const mergedCallbacks = { ...plugin.options.callbacks, ...this.options.callbacks };
+              const mergedOptions = { ...plugin.options, callbacks: mergedCallbacks };
+              const tempPlugin = new PluginClass(mergedOptions);
+              const rules = tempPlugin.doRuleInheritance(
+                tempPlugin.getResolveOptionsFromWebpack(config.resolve),
                 logger,
                 inheritedPackages
               );

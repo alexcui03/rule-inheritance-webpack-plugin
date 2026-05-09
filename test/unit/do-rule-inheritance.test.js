@@ -23,7 +23,7 @@ describe('recursive inheritance callbacks', () => {
     expect(plugin.loaderCallbacks.get('custom-loader')).toBe(callback);
   });
 
-  test('doRuleInheritance should merge callbacks into nested plugin', () => {
+  test('doRuleInheritance should not mutate nested plugin', () => {
     const callback = jest.fn();
     const parentPlugin = new RuleInheritancePlugin({
       packages: ['parent-package'],
@@ -31,7 +31,19 @@ describe('recursive inheritance callbacks', () => {
         'custom-loader': callback
       }
     });
-    const childPlugin = new RuleInheritancePlugin();
+
+    const spyDoRuleInheritance = jest.fn().mockReturnValue([]);
+
+    class ChildPluginClass {
+      constructor(options) {
+        this.options = options || {};
+      }
+
+      doRuleInheritance = spyDoRuleInheritance;
+      getResolveOptionsFromWebpack = jest.fn().mockReturnValue({});
+    }
+
+    const childPlugin = new ChildPluginClass();
 
     const logger = {
       info: jest.fn(),
@@ -56,18 +68,11 @@ describe('recursive inheritance callbacks', () => {
       plugins: [childPlugin]
     });
 
-    jest.spyOn(parentPlugin, 'getPluginClassFromPackage').mockReturnValue(RuleInheritancePlugin);
-
-    const mergeCallbacksSpy = jest.spyOn(childPlugin, 'mergeCallbacks');
-    const doRuleInheritanceSpy = jest.spyOn(childPlugin, 'doRuleInheritance').mockReturnValue([]);
+    jest.spyOn(parentPlugin, 'getPluginClassFromPackage').mockReturnValue(ChildPluginClass);
 
     parentPlugin.doRuleInheritance({}, logger);
 
-    expect(mergeCallbacksSpy).toHaveBeenCalledWith(parentPlugin.options.callbacks);
-    expect(doRuleInheritanceSpy).toHaveBeenCalled();
-    expect(childPlugin.options.callbacks['custom-loader']).toBe(callback);
-    expect(mergeCallbacksSpy.mock.invocationCallOrder[0]).toBeLessThan(
-      doRuleInheritanceSpy.mock.invocationCallOrder[0]
-    );
+    expect(childPlugin.options.callbacks).toBeUndefined();
+    expect(spyDoRuleInheritance).toHaveBeenCalledTimes(1);
   });
 });
