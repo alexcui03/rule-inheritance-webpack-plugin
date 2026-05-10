@@ -391,7 +391,7 @@ class RuleInheritancePlugin {
           for (const plugin of config.plugins) {
             if (
               plugin instanceof PluginClass &&
-              typeof plugin.setLogger(this.logger) &&
+              typeof plugin.setLogger === 'function' &&
               typeof plugin.doRuleInheritance === 'function'
             ) {
               plugin.setLogger(this.logger);
