@@ -3,6 +3,7 @@ module.exports = {
   testEnvironment: 'node',
   testMatch: [
     '<rootDir>/test/unit/**/*.test.js',
+    '<rootDir>/test/unit/**/*.test.mjs',
     '<rootDir>/test/*.test.js'
   ],
   moduleNameMapper: {

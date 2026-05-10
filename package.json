@@ -20,10 +20,15 @@
   "files": [
     "index.js"
   ],
-  "main": "index.js",
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.js"
+    }
+  },
   "scripts": {
     "lint": "eslint",
-    "test": "jest --verbose"
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --verbose"
   },
   "dependencies": {
     "enhanced-resolve": "^5.20.1"
@@ -34,6 +39,7 @@
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-jsdoc": "^62.9.0",
     "globals": "^17.4.0",
+    "import-meta-resolve": "^4.2.0",
     "jest": "^30.3.0",
     "webpack": "^5.0.0"
   },

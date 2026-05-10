@@ -57,6 +57,18 @@ const builtinCallbacks = {
         options.configFile = configFile;
       }
     }
+  },
+  /** @type {Callback} */
+  'babel-loader': (options, packagePath) => {
+    if (typeof options === 'string') {
+      console.warn(`We don't support string options for babel-loader in ${packagePath}. Ignoring.`);
+      return;
+    }
+
+    // https://babeljs.io/docs/options#cwd
+    if (!options.cwd) {
+      options.cwd = packagePath;
+    }
   }
 };
 
@@ -75,6 +87,7 @@ class RuleInheritancePlugin {
   constructor(options) {
     /** @type {Required<Options>} */
     this.options = Object.assign({}, defaultOptions, options);
+    this.options.callbacks = { ...this.options.callbacks };
 
     /** @type {Map<string, Callback>} */
     this.loaderCallbacks = new Map();
@@ -136,7 +149,8 @@ class RuleInheritancePlugin {
    * @returns {string} Path of module.
    */
   getModulePath(name, packagePath) {
-    const packageRequire = Module.createRequire(packagePath);
+    const targetPath = path.join(packagePath, 'package.json');
+    const packageRequire = Module.createRequire(targetPath);
     return packageRequire.resolve(name);
   }
 
@@ -148,7 +162,8 @@ class RuleInheritancePlugin {
    */
   getPluginClassFromPackage(packagePath) {
     try {
-      const packageRequire = Module.createRequire(packagePath);
+      const targetPath = path.join(packagePath, 'package.json');
+      const packageRequire = Module.createRequire(targetPath);
       return packageRequire('rule-inheritance-webpack-plugin');
     } catch {
       return null;
@@ -165,7 +180,7 @@ class RuleInheritancePlugin {
   updateLoaderByType(ruleUse, loader, packagePath) {
     if (this.loaderCallbacks.has(loader)) {
       const callback = this.loaderCallbacks.get(loader);
-      if (!ruleUse.options) ruleUse.options = Object.create(null);
+      if (!ruleUse.options) ruleUse.options = {};
       callback(ruleUse.options, packagePath);
     }
   }
@@ -179,13 +194,13 @@ class RuleInheritancePlugin {
   updateLoader(rule, packagePath) {
     if (Array.isArray(rule.use)) {
       for (const item of rule.use) {
-        const loader = item.loader;
-        item.loader = this.getModulePath(loader, packagePath);
-        this.updateLoaderByType(item, item.loader, packagePath);
+        if (item.loader) {
+          const loader = item.loader;
+          item.loader = this.getModulePath(loader, packagePath);
+          this.updateLoaderByType(item, loader, packagePath);
+        }
       }
-    }
-
-    if (typeof rule.use === 'object') {
+    } else if (typeof rule.use === 'object' && rule.use.loader) {
       const loader = rule.use.loader;
       rule.use.loader = this.getModulePath(loader, packagePath);
       this.updateLoaderByType(rule.use, loader, packagePath);
@@ -359,6 +374,19 @@ class RuleInheritancePlugin {
   }
 
   /**
+   * Merge custom callbacks into the plugin instance.
+   * @param {{[key: string]: Callback}} callbacks Custom callbacks to merge.
+   */
+  mergeCallbacks(callbacks) {
+    for (const loader in callbacks) {
+      if (Object.prototype.hasOwnProperty.call(callbacks, loader)) {
+        this.options.callbacks[loader] = callbacks[loader];
+        this.loaderCallbacks.set(loader, callbacks[loader]);
+      }
+    }
+  }
+
+  /**
    * Get nherited rules from given packages.
    * @param {ResolveOptions} resolveOptions Resolve options.
    * @param {Set<string>} [inheritedPackages] Set of paths to the packages that have been inherited.
@@ -391,12 +419,15 @@ class RuleInheritancePlugin {
           for (const plugin of config.plugins) {
             if (
               plugin instanceof PluginClass &&
-              typeof plugin.setLogger(this.logger) &&
+              typeof plugin.setLogger === 'function' &&
               typeof plugin.doRuleInheritance === 'function'
             ) {
-              plugin.setLogger(this.logger);
-              const rules = plugin.doRuleInheritance(
-                this.getResolveOptionsFromWebpack(config.resolve),
+              const mergedCallbacks = { ...plugin.options.callbacks, ...this.options.callbacks };
+              const mergedOptions = { ...plugin.options, callbacks: mergedCallbacks };
+              const tempPlugin = new PluginClass(mergedOptions);
+              tempPlugin.setLogger(this.logger);
+              const rules = tempPlugin.doRuleInheritance(
+                tempPlugin.getResolveOptionsFromWebpack(config.resolve),
                 inheritedPackages
               );
               newRules.push(...rules);
