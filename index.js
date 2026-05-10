@@ -16,8 +16,16 @@ const { create: createResolver } = require('enhanced-resolve');
  * @typedef {import('webpack').Compiler} Compiler
  * @typedef {import('webpack').Configuration} Configuration
  * @typedef {import('webpack').RuleSetRule} Rule
+ * @typedef {import('webpack').RuleSetUse} RuleUse
  * @typedef {ReturnType<Compiler['getInfrastructureLogger']>} Logger
  * @typedef {import('enhanced-resolve').ResolveOptionsOptionalFS} ResolveOptions
+ */
+
+/**
+ * @typedef {object} NormalizedRuleUse
+ * @property {string} [ident] Unique loader options identifier.
+ * @property {string} loader Loader name.
+ * @property {string | Record<string, any>} [options] Loader options.
  */
 
 /**
@@ -40,30 +48,13 @@ const { create: createResolver } = require('enhanced-resolve');
 
 const builtinCallbacks = {
   /** @type {Callback} */
-  'ts-loader': (rule, loader, packagePath) => {
-    const tsconfig = path.join(packagePath, 'tsconfig.json');
-    if (!fs.existsSync(tsconfig)) {
-      return;
-    }
-
-    if (typeof rule.use === 'string') {
-      rule.use = {
-        loader: rule.use,
-        options: {
-          configFile: tsconfig
-        }
-      };
+  'ts-loader': (options, packagePath) => {
+    if (options.configFile) {
+      options.configFile = path.resolve(packagePath, options.configFile);
     } else {
-      if (rule.options) {
-        if (rule.options.configFile) {
-          rule.options.configFile = path.resolve(packagePath, rule.options.configFile);
-        } else {
-          rule.options.configFile = tsconfig;
-        }
-      } else {
-        rule.options = {
-          configFile: tsconfig
-        };
+      const configFile = path.join(packagePath, 'tsconfig.json');
+      if (fs.existsSync(configFile)) {
+        options.configFile = configFile;
       }
     }
   }
@@ -156,55 +147,40 @@ class RuleInheritancePlugin {
   /**
    * Update rules by loader type. (e.g. ts-loader needs a correct tsconfig.json path
    * when it is not specified)
-   * @param {Rule} rule Rule object, might be modified by this function.
+   * @param {RuleUse} ruleUse Rule.use object, might be modified by this function.
    * @param {string} loader Loader name.
    * @param {string} packagePath Path to package.
    */
-  updateLoaderByType(rule, loader, packagePath) {
+  updateLoaderByType(ruleUse, loader, packagePath) {
     if (this.loaderCallbacks.has(loader)) {
       const callback = this.loaderCallbacks.get(loader);
-      callback(rule, loader, packagePath);
+      if (!ruleUse.options) ruleUse.options = Object.create(null);
+      callback(ruleUse.options, packagePath);
     }
   }
 
   /**
    * Update loader path to make it accessiable in parent package.
-   * @param {Rule} rule Rule object.
+   * @param {Rule} rule Normalized rule object.
    * @param {string} packagePath Path to package.
    * @returns {Rule} Updated rule.
    */
   updateLoader(rule, packagePath) {
-    if (rule.loader) {
-      // { loader: 'loader-name' }
-      const loader = rule.loader;
-      rule.loader = this.getModulePath(rule.loader, packagePath);
-      this.updateLoaderByType(rule, loader, packagePath);
-    } else if (rule.use) {
-      if (typeof rule.use === 'string') {
-        // { use: 'loader-name' }
-        const loader = rule.use;
-        rule.use = this.getModulePath(rule.use, packagePath);
-        this.updateLoaderByType(rule, loader, packagePath);
-      } else if (Array.isArray(rule.use)) {
-        // { use: [{ loader: 'loader-name' }] }
-        for (const loader of rule.use) {
-          if (loader.loader) {
-            const loaderName = rule.use;
-            loader.loader = this.getModulePath(loader.loader, packagePath);
-            this.updateLoaderByType(loader, loaderName, packagePath);
-          }
-        }
-      } else if (typeof rule.use === 'object') {
-        // { use: { loader: 'loader-name' } }
-        if (rule.use.loader) {
-          const loader = rule.use.loader;
-          rule.use.loader = this.getModulePath(rule.use.loader, packagePath);
-          this.updateLoaderByType(loader, rule.use, packagePath);
-        }
-      } else {
-        // @todo other cases
+    if (Array.isArray(rule.use)) {
+      for (const item of rule.use) {
+        const loader = item.loader;
+        item.loader = this.getModulePath(loader, packagePath);
+        this.updateLoaderByType(item, item.loader, packagePath);
       }
     }
+
+    if (typeof rule.use === 'object') {
+      const loader = rule.use.loader;
+      rule.use.loader = this.getModulePath(loader, packagePath);
+      this.updateLoaderByType(rule.use, loader, packagePath);
+    }
+
+    // @todo other cases
 
     return rule;
   }
@@ -310,6 +286,51 @@ class RuleInheritancePlugin {
   }
 
   /**
+   * Normalize rule.use object.
+   * @param {RuleUse} ruleUse Rule.use object.
+   * @returns {NormalizedRuleUse} Normalized rule.use object.
+   */
+  normalizeRuleUse(ruleUse) {
+    if (typeof ruleUse === 'string') {
+      return {
+        loader: ruleUse
+      };
+    }
+
+    if (Array.isArray(ruleUse)) {
+      return ruleUse.map((item) => this.normalizeRuleUse(item));
+    }
+
+    if (typeof ruleUse === 'object') {
+      return ruleUse;
+    }
+
+    // @todo other cases
+    return ruleUse;
+  }
+
+  /**
+   * Normalize rule object.
+   * @param {Rule} rule Rule object.
+   * @returns {Rule} Normalized rule object.
+   */
+  normalizeRule(rule) {
+    if (!rule.use && rule.loader) {
+      rule.use = {
+        loader: rule.loader
+      };
+      delete rule.loader;
+      if (rule.options) {
+        rule.use.options = rule.options;
+        delete rule.options;
+      }
+    }
+
+    rule.use = this.normalizeRuleUse(rule.use);
+    return rule;
+  }
+
+  /**
    * Get inherited rules from webpack config object.
    * @param {Configuration} config Webpack config object.
    * @param {string} packagePath Path to package.
@@ -320,6 +341,7 @@ class RuleInheritancePlugin {
 
     return config.module.rules.map((rule) => {
       const newRule = structuredClone(rule);
+      this.normalizeRule(newRule);
       this.updateLoader(newRule, packagePath);
       this.updateRuleCondition(newRule, packagePath);
       return newRule;

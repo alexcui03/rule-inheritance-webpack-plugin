@@ -22,39 +22,29 @@ describe('updateLoaderByType', () => {
   });
 
   test('ts-loader', () => {
-    const rules = [{
+    let ruleUse = {
       loader: 'ts-loader'
-    }, {
+    };
+    this.plugin.updateLoaderByType(ruleUse, 'ts-loader', TEST_PACKAGE_PATH);
+    expect(ruleUse).toEqual({
+      loader: 'ts-loader',
+      options: {
+        configFile: path.join(TEST_PACKAGE_PATH, 'tsconfig.json')
+      }
+    });
+
+    ruleUse = {
       loader: 'ts-loader',
       options: {
         configFile: CUSTOM_CONFIG_FILE
       }
-    }, {
-      use: 'ts-loader'
-    }];
-
-    for (const rule of rules) {
-      this.plugin.updateLoaderByType(rule, 'ts-loader', TEST_PACKAGE_PATH);
-    }
-
-    const expectConfig = path.join(TEST_PACKAGE_PATH, 'tsconfig.json');
-    expect(rules).toStrictEqual([{
-      loader: 'ts-loader',
-      options: {
-        configFile: expectConfig
-      }
-    }, {
+    };
+    this.plugin.updateLoaderByType(ruleUse, 'ts-loader', TEST_PACKAGE_PATH);
+    expect(ruleUse).toEqual({
       loader: 'ts-loader',
       options: {
         configFile: path.resolve(TEST_PACKAGE_PATH, CUSTOM_CONFIG_FILE)
       }
-    }, {
-      use: {
-        loader: 'ts-loader',
-        options: {
-          configFile: expectConfig
-        }
-      }
-    }]);
+    });
   });
 });

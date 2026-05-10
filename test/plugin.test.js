@@ -17,6 +17,9 @@ const RuleInheritancePlugin = require('../index');
  */
 function transformRegExp(object) {
   for (const key in object) {
+    if (object[key] === undefined || object[key] === null) {
+      continue;
+    }
     if (object[key].constructor.name === 'RegExp') {
       object[key] = object[key].source;
     } else if (typeof object[key] === 'object') {
@@ -52,7 +55,9 @@ describe('RuleInheritancePlugin', () => {
     expect(rules).toEqual([
       {
         test: /\.txt$/.source,
-        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        use: {
+          loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js')
+        },
         include: [
           path.resolve(__dirname, 'fixtures/sample-package')
         ]
@@ -82,14 +87,18 @@ describe('RuleInheritancePlugin', () => {
     expect(rules).toEqual([
       {
         test: /\.txt$/.source,
-        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        use: {
+          loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js')
+        },
         include: [
           path.resolve(__dirname, 'fixtures/sample-package')
         ]
       },
       {
         test: /\.png$/.source,
-        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        use: {
+          loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js')
+        },
         include: [
           path.resolve(__dirname, 'fixtures/another-package')
         ]
@@ -116,7 +125,9 @@ describe('RuleInheritancePlugin', () => {
     expect(rules).toEqual([
       {
         test: /\.png$/.source,
-        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        use: {
+          loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js')
+        },
         include: [
           path.resolve(__dirname, 'fixtures/another-package')
         ]
@@ -144,14 +155,18 @@ describe('RuleInheritancePlugin', () => {
     expect(rules).toEqual([
       {
         test: /\.txt$/.source,
-        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        use: {
+          loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js')
+        },
         include: [
           path.resolve(__dirname, 'fixtures/sample-package')
         ]
       },
       {
         test: /\.png$/.source,
-        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        use: {
+          loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js')
+        },
         include: [
           path.resolve(__dirname, 'fixtures/another-package')
         ]
@@ -184,7 +199,9 @@ describe('RuleInheritancePlugin', () => {
     expect(rules).toEqual([
       {
         test: /\.node\.txt$/.source,
-        loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js'),
+        use: {
+          loader: path.resolve(__dirname, 'fixtures/sample-loader/index.js')
+        },
         include: [
           path.resolve(__dirname, 'fixtures/sample-package')
         ]
