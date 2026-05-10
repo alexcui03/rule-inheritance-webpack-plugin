@@ -16,8 +16,16 @@ const { create: createResolver } = require('enhanced-resolve');
  * @typedef {import('webpack').Compiler} Compiler
  * @typedef {import('webpack').Configuration} Configuration
  * @typedef {import('webpack').RuleSetRule} Rule
+ * @typedef {import('webpack').RuleSetUse} RuleUse
  * @typedef {ReturnType<Compiler['getInfrastructureLogger']>} Logger
  * @typedef {import('enhanced-resolve').ResolveOptionsOptionalFS} ResolveOptions
+ */
+
+/**
+ * @typedef {object} NormalizedRuleUse
+ * @property {string} [ident] Unique loader options identifier.
+ * @property {string} loader Loader name.
+ * @property {string | Record<string, any>} [options] Loader options.
  */
 
 /**
@@ -40,52 +48,26 @@ const { create: createResolver } = require('enhanced-resolve');
 
 const builtinCallbacks = {
   /** @type {Callback} */
-  'ts-loader': (rule, loader, packagePath) => {
-    const tsconfig = path.join(packagePath, 'tsconfig.json');
-    if (!fs.existsSync(tsconfig)) {
-      return;
-    }
-
-    if (typeof rule.use === 'string') {
-      rule.use = {
-        loader: rule.use,
-        options: {
-          configFile: tsconfig
-        }
-      };
+  'ts-loader': (options, packagePath) => {
+    if (options.configFile) {
+      options.configFile = path.resolve(packagePath, options.configFile);
     } else {
-      if (rule.options) {
-        if (rule.options.configFile) {
-          rule.options.configFile = path.resolve(packagePath, rule.options.configFile);
-        } else {
-          rule.options.configFile = tsconfig;
-        }
-      } else {
-        rule.options = {
-          configFile: tsconfig
-        };
+      const configFile = path.join(packagePath, 'tsconfig.json');
+      if (fs.existsSync(configFile)) {
+        options.configFile = configFile;
       }
     }
   },
   /** @type {Callback} */
-  'babel-loader': (rule, loader, packagePath) => {
-    if (!rule.options) {
-      rule.options = {};
-    } else if (typeof rule.options === 'string') {
+  'babel-loader': (options, packagePath) => {
+    if (typeof options === 'string') {
       console.warn(`We don't support string options for babel-loader in ${packagePath}. Ignoring.`);
       return;
     }
 
-    if (typeof rule.use === 'string') {
-      rule.use = {
-        loader: rule.use,
-        options: {}
-      };
-    }
-
     // https://babeljs.io/docs/options#cwd
-    if (!rule.options.cwd) {
-      rule.options.cwd = packagePath;
+    if (!options.cwd) {
+      options.cwd = packagePath;
     }
   }
 };
@@ -126,6 +108,17 @@ class RuleInheritancePlugin {
         }
       }
     }
+
+    /** @type {Logger} */
+    this.logger = null;
+  }
+
+  /**
+   * Set webpack logger.
+   * @param {Logger} logger Webpac logger.
+   */
+  setLogger(logger) {
+    this.logger = logger;
   }
 
   /**
@@ -180,55 +173,40 @@ class RuleInheritancePlugin {
   /**
    * Update rules by loader type. (e.g. ts-loader needs a correct tsconfig.json path
    * when it is not specified)
-   * @param {Rule} rule Rule object, might be modified by this function.
+   * @param {RuleUse} ruleUse Rule.use object, might be modified by this function.
    * @param {string} loader Loader name.
    * @param {string} packagePath Path to package.
    */
-  updateLoaderByType(rule, loader, packagePath) {
+  updateLoaderByType(ruleUse, loader, packagePath) {
     if (this.loaderCallbacks.has(loader)) {
       const callback = this.loaderCallbacks.get(loader);
-      callback(rule, loader, packagePath);
+      if (!ruleUse.options) ruleUse.options = {};
+      callback(ruleUse.options, packagePath);
     }
   }
 
   /**
    * Update loader path to make it accessiable in parent package.
-   * @param {Rule} rule Rule object.
+   * @param {Rule} rule Normalized rule object.
    * @param {string} packagePath Path to package.
    * @returns {Rule} Updated rule.
    */
   updateLoader(rule, packagePath) {
-    if (rule.loader) {
-      // { loader: 'loader-name' }
-      const loader = rule.loader;
-      rule.loader = this.getModulePath(rule.loader, packagePath);
-      this.updateLoaderByType(rule, loader, packagePath);
-    } else if (rule.use) {
-      if (typeof rule.use === 'string') {
-        // { use: 'loader-name' }
-        const loader = rule.use;
-        rule.use = this.getModulePath(rule.use, packagePath);
-        this.updateLoaderByType(rule, loader, packagePath);
-      } else if (Array.isArray(rule.use)) {
-        // { use: [{ loader: 'loader-name' }] }
-        for (const loader of rule.use) {
-          if (loader.loader) {
-            const loaderName = loader.loader;
-            loader.loader = this.getModulePath(loader.loader, packagePath);
-            this.updateLoaderByType(loader, loaderName, packagePath);
-          }
+    if (Array.isArray(rule.use)) {
+      for (const item of rule.use) {
+        if (item.loader) {
+          const loader = item.loader;
+          item.loader = this.getModulePath(loader, packagePath);
+          this.updateLoaderByType(item, loader, packagePath);
         }
-      } else if (typeof rule.use === 'object') {
-        // { use: { loader: 'loader-name' } }
-        if (rule.use.loader) {
-          const loader = rule.use.loader;
-          rule.use.loader = this.getModulePath(rule.use.loader, packagePath);
-          this.updateLoaderByType(rule.use, loader, packagePath);
-        }
-      } else {
-        // @todo other cases
       }
+    } else if (typeof rule.use === 'object' && rule.use.loader) {
+      const loader = rule.use.loader;
+      rule.use.loader = this.getModulePath(loader, packagePath);
+      this.updateLoaderByType(rule.use, loader, packagePath);
     }
+
+    // @todo other cases
 
     return rule;
   }
@@ -258,11 +236,10 @@ class RuleInheritancePlugin {
    * Get webpack configuration from given package.
    * @param {string} packagePath Path to package.
    * @param {ResolveOptions} resolveOptions Resolve options.
-   * @param {Logger} logger Webpack logger.
    * @returns {webpack.WebpackOptionsNormalized} Webpack config object.
    *    An error will be thrown if package doesn't exist.
    */
-  getPackageConfig(packagePath, resolveOptions, logger) {
+  getPackageConfig(packagePath, resolveOptions) {
     // Check that package path should be a existing directory and package.json must exists.
     if (
       !fs.existsSync(packagePath) ||
@@ -329,8 +306,53 @@ class RuleInheritancePlugin {
       }
     }
 
-    logger.warn(`no satisfied config found in ${packagePath}, the first config will be used`);
+    this.logger.warn(`no satisfied config found in ${packagePath}, the first config will be used`);
     return firstOption;
+  }
+
+  /**
+   * Normalize rule.use object.
+   * @param {RuleUse} ruleUse Rule.use object.
+   * @returns {NormalizedRuleUse} Normalized rule.use object.
+   */
+  normalizeRuleUse(ruleUse) {
+    if (typeof ruleUse === 'string') {
+      return {
+        loader: ruleUse
+      };
+    }
+
+    if (Array.isArray(ruleUse)) {
+      return ruleUse.map((item) => this.normalizeRuleUse(item));
+    }
+
+    if (typeof ruleUse === 'object') {
+      return ruleUse;
+    }
+
+    // @todo other cases
+    return ruleUse;
+  }
+
+  /**
+   * Normalize rule object.
+   * @param {Rule} rule Rule object.
+   * @returns {Rule} Normalized rule object.
+   */
+  normalizeRule(rule) {
+    if (!rule.use && rule.loader) {
+      rule.use = {
+        loader: rule.loader
+      };
+      delete rule.loader;
+      if (rule.options) {
+        rule.use.options = rule.options;
+        delete rule.options;
+      }
+    }
+
+    rule.use = this.normalizeRuleUse(rule.use);
+    return rule;
   }
 
   /**
@@ -344,6 +366,7 @@ class RuleInheritancePlugin {
 
     return config.module.rules.map((rule) => {
       const newRule = structuredClone(rule);
+      this.normalizeRule(newRule);
       this.updateLoader(newRule, packagePath);
       this.updateRuleCondition(newRule, packagePath);
       return newRule;
@@ -366,17 +389,16 @@ class RuleInheritancePlugin {
   /**
    * Get nherited rules from given packages.
    * @param {ResolveOptions} resolveOptions Resolve options.
-   * @param {Logger} logger Webpack logger.
-   * @param {Set<string>} [inheritedPackages] Set of packages' path that are inherited.
+   * @param {Set<string>} [inheritedPackages] Set of paths to the packages that have been inherited.
    * @returns {Rule[]} Inherited rules.
    */
-  doRuleInheritance(resolveOptions, logger, inheritedPackages = new Set()) {
+  doRuleInheritance(resolveOptions, inheritedPackages = new Set()) {
     /** @type {Rule[]} */
     const newRules = [];
 
     for (const packagePath of this.options.packages) {
       if (inheritedPackages.has(packagePath)) {
-        logger.info(`skip ${packagePath} since it has been inherited`);
+        this.logger.info(`skip ${packagePath} since it has been inherited`);
         continue;
       } else {
         inheritedPackages.add(packagePath);
@@ -384,9 +406,9 @@ class RuleInheritancePlugin {
 
       let config;
       try {
-        config = this.getPackageConfig(packagePath, resolveOptions, logger);
+        config = this.getPackageConfig(packagePath, resolveOptions);
       } catch (error) {
-        logger.error(error.message);
+        this.logger.error(error.message);
         continue;
       }
 
@@ -397,14 +419,15 @@ class RuleInheritancePlugin {
           for (const plugin of config.plugins) {
             if (
               plugin instanceof PluginClass &&
+              typeof plugin.setLogger === 'function' &&
               typeof plugin.doRuleInheritance === 'function'
             ) {
               const mergedCallbacks = { ...plugin.options.callbacks, ...this.options.callbacks };
               const mergedOptions = { ...plugin.options, callbacks: mergedCallbacks };
               const tempPlugin = new PluginClass(mergedOptions);
+              tempPlugin.setLogger(this.logger);
               const rules = tempPlugin.doRuleInheritance(
                 tempPlugin.getResolveOptionsFromWebpack(config.resolve),
-                logger,
                 inheritedPackages
               );
               newRules.push(...rules);
@@ -414,7 +437,7 @@ class RuleInheritancePlugin {
       }
 
       const inheritedRules = this.getInheritedRules(config, packagePath);
-      logger.info(`inherit ${inheritedRules.length} rules from ${packagePath}`);
+      this.logger.info(`inherit ${inheritedRules.length} rules from ${packagePath}`);
       newRules.push(...inheritedRules);
     }
 
@@ -426,11 +449,9 @@ class RuleInheritancePlugin {
    */
   apply(compiler) {
     compiler.hooks.afterEnvironment.tap('RuleInheritancePlugin', () => {
-      const logger = compiler.getInfrastructureLogger('rule-inheritance-webpack-plugin');
-
+      this.logger = compiler.getInfrastructureLogger('rule-inheritance-webpack-plugin');
       const newRules = this.doRuleInheritance(
-        this.getResolveOptionsFromWebpack(compiler.options.resolve),
-        logger
+        this.getResolveOptionsFromWebpack(compiler.options.resolve)
       );
       compiler.options.module.rules = newRules.concat(compiler.options.module.rules);
     });

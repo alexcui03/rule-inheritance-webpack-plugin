@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Try to find the webpack config whose entry's output path matches the path exported from the package. It will choose the first webpack config by default if multiple configs are exported.
+- Function prototype of loader callbacks are changed to `(options, packagePath) => void`.
 
 ## [0.4.0] - 2026-04-08
 

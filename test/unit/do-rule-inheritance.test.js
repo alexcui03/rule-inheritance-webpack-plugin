@@ -41,6 +41,7 @@ describe('recursive inheritance callbacks', () => {
 
       doRuleInheritance = spyDoRuleInheritance;
       getResolveOptionsFromWebpack = jest.fn().mockReturnValue({});
+      setLogger = jest.fn();
     }
 
     const childPlugin = new ChildPluginClass();
@@ -70,7 +71,8 @@ describe('recursive inheritance callbacks', () => {
 
     jest.spyOn(parentPlugin, 'getPluginClassFromPackage').mockReturnValue(ChildPluginClass);
 
-    parentPlugin.doRuleInheritance({}, logger);
+    parentPlugin.setLogger(logger);
+    parentPlugin.doRuleInheritance({});
 
     expect(childPlugin.options.callbacks).toBeUndefined();
     expect(spyDoRuleInheritance).toHaveBeenCalledTimes(1);

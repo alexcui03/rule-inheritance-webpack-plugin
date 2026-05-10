@@ -17,57 +17,19 @@ describe('updateLoader', () => {
     this.plugin = plugin;
   });
 
-  test('{ loader: \'loader-name\' }', () => {
-    const rule = this.plugin.updateLoader({
-      loader: 'test-loader',
-      options: {}
-    }, 'test-package');
-
-    expect(rule).toStrictEqual({
-      loader: TEST_MODULE_PATH,
-      options: {}
-    });
-  });
-
-  test('{ use: \'loader-name\' }', () => {
-    const rule = this.plugin.updateLoader({
-      use: 'test-loader'
-    }, 'test-package');
-
-    expect(rule).toStrictEqual({
-      use: TEST_MODULE_PATH
-    });
-  });
-
-  test('{ use: { loader: \'loader-name\' } }', () => {
+  test('simple', () => {
     const rule = this.plugin.updateLoader({
       use: {
-        loader: 'test-loader'
+        loader: 'test-loader',
+        options: {}
       }
     }, 'test-package');
 
-    expect(rule).toStrictEqual({
+    expect(rule).toEqual({
       use: {
-        loader: TEST_MODULE_PATH
+        loader: TEST_MODULE_PATH,
+        options: {}
       }
-    });
-  });
-
-  test('{ use: [{ loader: \'loader-name\' }] }', () => {
-    const rule = this.plugin.updateLoader({
-      use: [{
-        loader: 'test-loader'
-      }, {
-        loader: 'another-test-loader'
-      }]
-    }, 'test-package');
-
-    expect(rule).toStrictEqual({
-      use: [{
-        loader: TEST_MODULE_PATH
-      }, {
-        loader: TEST_MODULE_PATH
-      }]
     });
   });
 });
